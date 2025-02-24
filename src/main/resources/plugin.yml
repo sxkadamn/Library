@@ -1,0 +1,7 @@
+name: lieLibrary
+version: '${project.version}'
+main: net.lielibrary.bukkit.Plugin
+api-version: '1.16'
+author: _a_k_u_l_k_a_
+softdepend:
+  - ProtocolLib

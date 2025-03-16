@@ -16,6 +16,7 @@ public final class Plugin extends JavaPlugin {
     @Override
     public void onEnable() {
         library = this;
+        saveDefaultConfig();
 
         withColor = new ColorImpl();
         menuManager = new MenuManager();

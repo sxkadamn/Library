@@ -1,8 +1,8 @@
 package net.lielibrary.gui.impl;
 
 
+import net.lielibrary.AnimatedMenu;
 import net.lielibrary.bukkit.Plugin;
-import net.lielibrary.gui.Menu;
 import net.lielibrary.gui.buttons.Button;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -16,7 +16,7 @@ public class MenuListener implements Listener {
     @EventHandler
     public void onInteract(InventoryInteractEvent event) {
         Inventory clicked = event.getView().getTopInventory();
-        Menu menu = Plugin.getMenuManager().getMenu(clicked);
+        AnimatedMenu menu = Plugin.getMenuManager().getMenu(clicked);
 
         if (menu != null && menu.isInteractDisabled()) {
             event.setCancelled(true);
@@ -26,7 +26,7 @@ public class MenuListener implements Listener {
     @EventHandler
     public void onClose(InventoryCloseEvent event) {
         Inventory closed = event.getInventory();
-        Menu menu = Plugin.getMenuManager().getMenu(closed);
+        AnimatedMenu menu = Plugin.getMenuManager().getMenu(closed);
 
         if (menu != null && menu.hasCloseListener()) {
             menu.getCloseListener().onClose((Player) event.getPlayer());
@@ -41,11 +41,15 @@ public class MenuListener implements Listener {
         if (event.getAction() == InventoryAction.NOTHING || event.isCancelled()) return;
 
         Inventory clicked = event.getInventory();
-        Menu menu = Plugin.getMenuManager().getMenu(clicked);
+        AnimatedMenu menu = Plugin.getMenuManager().getMenu(clicked);
 
         if (menu != null) {
-            Button button = menu.getSlot(event.getSlot());
+            if (menu.isInteractDisabled()) {
+                event.setCancelled(true);
+                return;
+            }
 
+            Button button = menu.getSlot(event.getSlot());
             if (button != null) {
                 if (button.isInteractDisabled() &&
                         event.getClickedInventory().equals(event.getView().getTopInventory())) {

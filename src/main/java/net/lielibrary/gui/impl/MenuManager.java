@@ -1,12 +1,14 @@
 package net.lielibrary.gui.impl;
 
+import net.lielibrary.AnimatedMenu;
 import net.lielibrary.bukkit.Plugin;
-import net.lielibrary.gui.Menu;
-import net.lielibrary.gui.Text;
+import net.lielibrary.gui.customize.AnimationType;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.Sound;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -15,44 +17,43 @@ import java.util.HashMap;
 
 public final class MenuManager {
 
-    private final HashMap<String, HashMap<String, Menu>> guis;
-    private final HashMap<Inventory, Menu> inv_guis;
+    private final HashMap<String, HashMap<String, AnimatedMenu>> guis;
+    private final HashMap<Inventory, AnimatedMenu> inv_guis;
 
     public MenuManager() {
         guis = new HashMap<>();
         inv_guis = new HashMap<>();
     }
 
-    public Menu createGUI(String id, String player, String title, int rows, boolean updateEnabled) {
-        Menu menu = new Menu(id, title, rows, updateEnabled);
-        registerGUI(id, player, menu);
-        return menu;
+    public AnimatedMenu createMenuFromConfig(String title, int rows, Player player) {
+        ConfigurationSection config = Plugin.getLibrary().getConfig().getConfigurationSection("menu.animation");
+
+        AnimationType type = AnimationType.fromString(config.getString("type", "fill_glass"));
+        Material material = Material.matchMaterial(config.getString("material", "GRAY_STAINED_GLASS_PANE"));
+        int speed = config.getInt("speed", 5);
+        Sound sound = Sound.valueOf(config.getString("sound", "BLOCK_NOTE_BLOCK_BANJO"));
+        boolean boolshit = config.getBoolean("autoUpdate", false);
+
+        AnimatedMenu animatedMenu = new MenuImpl(title, rows, type, material, speed, sound, boolshit);
+
+        return registerGUI(title, player.getName(), animatedMenu);
     }
 
-    public Menu createGUI(String id, String player, Text title, int rows, boolean updateEnabled) {
-        return createGUI(id, player, title.getRaw(), rows, updateEnabled);
-    }
-
-    public Menu createGUI(String id, String player, String title, InventoryType inventoryType, boolean updateEnabled) {
-        Menu menu = new Menu(id, Bukkit.getPlayerExact(player), title, inventoryType, updateEnabled);
-        registerGUI(id, player, menu);
-        return menu;
-    }
-
-    public void registerGUI(String id, String player, Menu menu) {
+    public AnimatedMenu registerGUI(String id, String player, AnimatedMenu menu) {
         guis.computeIfAbsent(player, k -> new HashMap<>()).put(id, menu);
         inv_guis.put(menu.getInventory(), menu);
+        return menu;
     }
 
-    public Collection<Menu> getMenus(String player) {
+    public Collection<AnimatedMenu> getMenus(String player) {
         return guis.getOrDefault(player, new HashMap<>()).values();
     }
 
-    public Menu getMenu(Inventory inventory) {
+    public AnimatedMenu getMenu(Inventory inventory) {
         return inv_guis.get(inventory);
     }
 
-    public Menu getMenu(String player, String id) {
+    public AnimatedMenu getMenu(String player, String id) {
         return guis.getOrDefault(player, new HashMap<>()).get(id);
     }
 
@@ -63,7 +64,7 @@ public final class MenuManager {
     public void closeAllMenusForPlayer(String player) {
         Player p = Bukkit.getPlayerExact(player);
         if (p != null && guis.containsKey(player)) {
-            for (Menu menu : guis.get(player).values()) {
+            for (AnimatedMenu menu : guis.get(player).values()) {
                 if (menu.getInventory().getViewers().contains(p)) {
                     p.closeInventory();
                 }
@@ -72,13 +73,13 @@ public final class MenuManager {
     }
 
     public boolean isMenuOpen(String player, String id) {
-        Menu menu = getMenu(player, id);
+        AnimatedMenu menu = getMenu(player, id);
         Player p = Bukkit.getPlayerExact(player);
         return menu != null && p != null && menu.getInventory().getViewers().contains(p);
     }
 
     public void closeAllMenus() {
-        for (Menu menu : inv_guis.values()) {
+        for (AnimatedMenu menu : inv_guis.values()) {
             for (HumanEntity viewer : menu.getInventory().getViewers()) {
                 viewer.closeInventory();
             }
@@ -87,8 +88,8 @@ public final class MenuManager {
 
     public void reloadMenusForPlayer(String player) {
         if (guis.containsKey(player)) {
-            HashMap<String, Menu> playerMenus = guis.get(player);
-            for (Menu menu : playerMenus.values()) {
+            HashMap<String, AnimatedMenu> playerMenus = guis.get(player);
+            for (AnimatedMenu menu : playerMenus.values()) {
                 Inventory inv = menu.getInventory();
                 for (HumanEntity viewer : inv.getViewers()) {
                     viewer.closeInventory();

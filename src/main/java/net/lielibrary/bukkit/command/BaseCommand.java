@@ -1,17 +1,19 @@
 package net.lielibrary.bukkit.command;
 
+import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import org.bukkit.command.Command;
+
+import org.bukkit.command.TabCompleter;
 import org.bukkit.plugin.Plugin;
+import org.jetbrains.annotations.NotNull;
 
-public abstract class BaseCommand implements CommandExecutor {
+public abstract class BaseCommand implements CommandExecutor, TabCompleter {
     private final String name;
-
     private final String[] usages;
 
     public BaseCommand(String name, String... aliases) {
@@ -40,9 +42,10 @@ public abstract class BaseCommand implements CommandExecutor {
         return this;
     }
 
-    public abstract void execute(CommandSender paramCommandSender, String[] paramArrayOfString);
+    public abstract void execute(CommandSender sender, String[] args);
 
-    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+    @Override
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command cmd, @NotNull String label, String[] args) {
         try {
             execute(sender, args);
         } catch (ClassCastException e) {
@@ -50,4 +53,7 @@ public abstract class BaseCommand implements CommandExecutor {
         }
         return false;
     }
+
+    @Override
+    public abstract List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, String[] args);
 }

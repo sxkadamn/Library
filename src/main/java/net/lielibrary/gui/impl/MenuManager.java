@@ -15,8 +15,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import java.util.Collection;
 import java.util.HashMap;
 
-public final class MenuManager {
-
+public class MenuManager {
     private final HashMap<String, HashMap<String, AnimatedMenu>> guis;
     private final HashMap<Inventory, AnimatedMenu> inv_guis;
 
@@ -28,13 +27,25 @@ public final class MenuManager {
     public AnimatedMenu createMenuFromConfig(String title, int rows, Player player) {
         ConfigurationSection config = Plugin.getLibrary().getConfig().getConfigurationSection("menu.animation");
 
-        AnimationType type = AnimationType.fromString(config.getString("type", "fill_glass"));
-        Material material = Material.matchMaterial(config.getString("material", "GRAY_STAINED_GLASS_PANE"));
-        int speed = config.getInt("speed", 5);
-        Sound sound = Sound.valueOf(config.getString("sound", "BLOCK_NOTE_BLOCK_BANJO"));
-        boolean boolshit = config.getBoolean("autoUpdate", false);
+        if (config == null) {
+            throw new IllegalStateException("Configuration section 'menu.animation' not found in config.yml");
+        }
 
-        AnimatedMenu animatedMenu = new MenuImpl(title, rows, type, material, speed, sound, boolshit);
+        AnimationType type = AnimationType.fromString(config.getString("type"));
+        Material material = Material.matchMaterial(config.getString("material"));
+        if (material == null) {
+            material = Material.GRAY_STAINED_GLASS_PANE;
+        }
+        int speed = config.getInt("speed", 5);
+        Sound sound;
+        try {
+            sound = Sound.valueOf(config.getString("sound"));
+        } catch (IllegalArgumentException e) {
+            sound = Sound.BLOCK_NOTE_BLOCK_BANJO;
+        }
+        boolean autoUpdate = config.getBoolean("autoUpdate");
+
+        AnimatedMenu animatedMenu = new MenuImpl(title, rows, type, material, speed, sound, autoUpdate, Plugin.getLibrary().getConfig());
 
         return registerGUI(title, player.getName(), animatedMenu);
     }

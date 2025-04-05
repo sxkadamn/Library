@@ -3,6 +3,7 @@ package net.lielibrary;
 import net.lielibrary.bukkit.Plugin;
 import net.lielibrary.gui.CloseListener;
 import net.lielibrary.gui.buttons.Button;
+import net.lielibrary.gui.customize.AnimationDirection;
 import net.lielibrary.gui.customize.AnimationStrategy;
 import net.lielibrary.gui.customize.AnimationType;
 import net.lielibrary.gui.customize.filler.FillGlassAnimation;
@@ -11,6 +12,7 @@ import net.lielibrary.gui.customize.filler.WaveAnimation;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.Sound;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -28,6 +30,9 @@ public abstract class AnimatedMenu {
     protected final Material fillMaterial;
     protected final int speed;
     protected final Sound sound;
+    protected final boolean animationEnabled;
+    protected final AnimationDirection animationDirection;
+    protected final int batchSize;
     protected final Queue<Integer> animationQueue;
     protected final Set<Integer> animatedSlots;
     private boolean interactDisabled = true;
@@ -39,13 +44,18 @@ public abstract class AnimatedMenu {
     protected @NotNull BukkitTask autoUpdateTask;
     protected final boolean updateEnabled;
     protected CloseListener closeListener;
+    private BukkitTask animationTask;
 
-    public AnimatedMenu(String title, int rows, AnimationType animationType, Material fillMaterial, int speed, Sound sound, boolean updateEnabled) {
+    public enum AnimationDirection {
+        FORWARD, BACKWARD, RANDOM
+    }
+
+    public AnimatedMenu(String title, int rows, AnimationType animationType, Material fillMaterial, int speed, Sound sound, boolean updateEnabled, FileConfiguration config) {
         this.inventory = Bukkit.createInventory(null, rows * 9, title);
         this.slots = new HashMap<>();
         this.animationStrategy = createAnimationStrategy(animationType);
         this.fillMaterial = fillMaterial;
-        this.speed = speed;
+        this.speed = Math.max(1, speed);
         this.sound = sound;
         this.animationQueue = new LinkedList<>();
         this.rowsPerPage = rows;
@@ -53,6 +63,18 @@ public abstract class AnimatedMenu {
         this.prevPageItem = new ItemStack(Material.ARROW);
         this.nextPageItem = new ItemStack(Material.ARROW);
         this.updateEnabled = updateEnabled;
+
+        this.animationEnabled = config.getBoolean("menu.animation.enabled", true);
+        this.batchSize = config.getInt("menu.animation.batch_size", 3);
+
+        String directionStr = config.getString("menu.animation.direction", "forward").toUpperCase();
+        AnimationDirection tempDirection = AnimationDirection.FORWARD;
+        try {
+            tempDirection = AnimationDirection.valueOf(directionStr);
+        } catch (IllegalArgumentException ignored) {
+        }
+        this.animationDirection = tempDirection;
+
         updatePage();
 
         if (updateEnabled) {
@@ -74,38 +96,129 @@ public abstract class AnimatedMenu {
             inventory.clear();
             player.openInventory(inventory);
             disableInteract(true);
-            startAnimation(player);
+
+            if (animationEnabled) {
+                startAnimation(player, animationDirection, null);
+            } else {
+                fillInventoryWithoutAnimation(null);
+                disableInteract(false);
+            }
         });
     }
 
-    private void startAnimation(Player player) {
-        animationQueue.addAll(animationStrategy.getAnimationSlots(inventory));
+    public void startAnimation(Player player, AnimationDirection direction, List<Integer> customSlots) {
+        animationQueue.clear();
+        animatedSlots.clear();
 
-        new BukkitRunnable() {
+        List<Integer> slotsToAnimate = customSlots != null ? customSlots : animationStrategy.getAnimationSlots(inventory);
+        switch (direction) {
+            case BACKWARD -> {
+                List<Integer> reversed = new ArrayList<>(slotsToAnimate);
+                Collections.reverse(reversed);
+                animationQueue.addAll(reversed);
+            }
+            case RANDOM -> {
+                List<Integer> shuffled = new ArrayList<>(slotsToAnimate);
+                Collections.shuffle(shuffled);
+                animationQueue.addAll(shuffled);
+            }
+            default -> animationQueue.addAll(slotsToAnimate);
+        }
+
+        stopAnimation();
+
+        animationTask = new BukkitRunnable() {
             @Override
             public void run() {
-                if (animationQueue.isEmpty()) {
-                    cancel();
-                    removeAnimation(player);
+                if (!player.getOpenInventory().getTopInventory().equals(inventory)) {
+                    stopAnimation();
                     return;
                 }
 
-                int slot = animationQueue.poll();
-
-                if (slots.containsKey(slot)) {
-                    inventory.setItem(slot, slots.get(slot).getItem());
-                } else {
-                    inventory.setItem(slot, new ItemStack(fillMaterial));
-                    animatedSlots.add(slot);
+                for (int i = 0; i < batchSize && !animationQueue.isEmpty(); i++) {
+                    int slot = animationQueue.poll();
+                    if (slots.containsKey(slot)) {
+                        inventory.setItem(slot, slots.get(slot).getItem());
+                    } else {
+                        inventory.setItem(slot, new ItemStack(fillMaterial));
+                        animatedSlots.add(slot);
+                    }
                 }
 
-                player.playSound(player.getLocation(), sound, 1.5F, 1.5F);
+                if (animationQueue.isEmpty()) {
+                    stopAnimation();
+                    return;
+                }
+
+                player.playSound(player.getLocation(), sound, 1.2F, 1.2F);
                 player.updateInventory();
             }
         }.runTaskTimer(Plugin.getLibrary(), 0L, speed);
     }
 
-    private void removeAnimation(Player player) {
+    private void fillInventoryWithoutAnimation(List<Integer> customSlots) {
+        List<Integer> slotsToFill = customSlots != null ? customSlots : animationStrategy.getAnimationSlots(inventory);
+        for (int slot : slotsToFill) {
+            if (slots.containsKey(slot)) {
+                inventory.setItem(slot, slots.get(slot).getItem());
+            } else {
+                inventory.setItem(slot, new ItemStack(fillMaterial));
+            }
+        }
+    }
+
+    public void clearWithAnimation(Player player, AnimationDirection direction, List<Integer> customSlots) {
+        animationQueue.clear();
+        animatedSlots.clear();
+
+        List<Integer> slotsToClear = customSlots != null ? customSlots : animationStrategy.getAnimationSlots(inventory);
+        switch (direction) {
+            case BACKWARD -> {
+                List<Integer> reversed = new ArrayList<>(slotsToClear);
+                Collections.reverse(reversed);
+                animationQueue.addAll(reversed);
+            }
+            case RANDOM -> {
+                List<Integer> shuffled = new ArrayList<>(slotsToClear);
+                Collections.shuffle(shuffled);
+                animationQueue.addAll(shuffled);
+            }
+            default -> animationQueue.addAll(slotsToClear);
+        }
+
+        stopAnimation();
+
+        animationTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.getOpenInventory().getTopInventory().equals(inventory)) {
+                    stopAnimation();
+                    return;
+                }
+
+                for (int i = 0; i < batchSize && !animationQueue.isEmpty(); i++) {
+                    int slot = animationQueue.poll();
+                    inventory.clear(slot);
+                    animatedSlots.remove(slot);
+                }
+
+                if (animationQueue.isEmpty()) {
+                    stopAnimation();
+                    return;
+                }
+
+                player.playSound(player.getLocation(), sound, 1.2F, 1.2F);
+                player.updateInventory();
+            }
+        }.runTaskTimer(Plugin.getLibrary(), 0L, speed);
+    }
+
+    public void stopAnimation() {
+        if (animationTask != null) {
+            animationTask.cancel();
+            animationTask = null;
+        }
+
         Bukkit.getScheduler().runTask(Plugin.getLibrary(), () -> {
             for (int slot : animatedSlots) {
                 if (!slots.containsKey(slot)) {
@@ -113,7 +226,6 @@ public abstract class AnimatedMenu {
                 }
             }
             animatedSlots.clear();
-            player.updateInventory();
             disableInteract(false);
         });
     }
@@ -202,8 +314,6 @@ public abstract class AnimatedMenu {
         });
     }
 
-
-
     public boolean hasCloseListener() {
         return closeListener != null;
     }
@@ -219,7 +329,6 @@ public abstract class AnimatedMenu {
     public Sound getSound() {
         return sound;
     }
-
 
     public Inventory getInventory() {
         return inventory;
@@ -249,7 +358,6 @@ public abstract class AnimatedMenu {
     public int getCurrentPage() {
         return currentPage;
     }
-
 
     public int getItemsPerPage() {
         return itemsPerPage;
@@ -289,8 +397,7 @@ public abstract class AnimatedMenu {
     }
 
     public void stopAutoUpdate() {
-        if(autoUpdateTask == null) return;
-
+        if (autoUpdateTask == null) return;
         this.autoUpdateTask.cancel();
     }
 }

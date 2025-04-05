@@ -28,11 +28,13 @@ public class MenuListener implements Listener {
         Inventory closed = event.getInventory();
         AnimatedMenu menu = Plugin.getMenuManager().getMenu(closed);
 
-        if (menu != null && menu.hasCloseListener()) {
-            menu.getCloseListener().onClose((Player) event.getPlayer());
-
-
+        if (menu != null) {
+            menu.stopAnimation();
             menu.stopAutoUpdate();
+
+            if (menu.hasCloseListener()) {
+                menu.getCloseListener().onClose((Player) event.getPlayer());
+            }
         }
     }
 

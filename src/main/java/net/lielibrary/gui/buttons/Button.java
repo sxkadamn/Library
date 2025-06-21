@@ -27,7 +27,14 @@ public class Button {
     private boolean interactDisabled;
     private int position;
     private boolean staticated;
+    private int clickCount = 0;
+    private String dynamicDataType;
+    private String displayFormat;
 
+    public Button(ItemStack item, ButtonListener listener) {
+        this.item = item != null ? item : new ItemStack(Material.AIR);
+        this.listener = listener;
+    }
 
     public Button(Material material) {
         this.item = new ItemStack(material);
@@ -42,7 +49,6 @@ public class Button {
     public Button(ItemStack item) {
         this.item = item != null ? item : new ItemStack(Material.AIR);
     }
-
 
     public Button setPlayerOwner(String playerName) {
         if (item.getType() == Material.PLAYER_HEAD) {
@@ -128,7 +134,6 @@ public class Button {
         return this;
     }
 
-
     public Button hideAttributes(boolean hide) {
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
@@ -167,6 +172,7 @@ public class Button {
         }
         return this;
     }
+
     public Button cloneButton() {
         ItemStack clonedItem = item.clone();
         Button clonedButton = new Button(clonedItem);
@@ -177,6 +183,7 @@ public class Button {
                 .setPosition(position);
         return clonedButton;
     }
+
     public Button applyMeta(Function<ItemMeta, ItemMeta> metaFunction) {
         ItemMeta meta = item.getItemMeta();
         item.setItemMeta(metaFunction.apply(meta));
@@ -237,18 +244,20 @@ public class Button {
         return this;
     }
 
-    public int getPosition() {
-        return position;
+    public Button setPosition(int position) {
+        this.position = position;
+        return this;
     }
 
-    public void setPosition(int position) {
-        this.position = position;
+    public int getPosition() {
+        return position;
     }
 
     public Button withListener(ButtonListener listener) {
         this.listener = listener;
         return this;
     }
+
     public void executeListener(InventoryClickEvent event) {
         if (hasListener()) {
             listener.execute(event);
@@ -261,5 +270,10 @@ public class Button {
 
     public boolean hasListener() {
         return listener != null;
+    }
+
+
+    public String getDisplayFormat() {
+        return displayFormat;
     }
 }

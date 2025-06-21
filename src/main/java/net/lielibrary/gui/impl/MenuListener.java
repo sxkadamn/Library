@@ -1,15 +1,16 @@
 package net.lielibrary.gui.impl;
 
-
 import net.lielibrary.AnimatedMenu;
 import net.lielibrary.bukkit.Plugin;
 import net.lielibrary.gui.buttons.Button;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.*;
+import org.bukkit.event.inventory.InventoryAction;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryInteractEvent;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
 
 public class MenuListener implements Listener {
 
@@ -40,32 +41,37 @@ public class MenuListener implements Listener {
 
     @EventHandler
     public void onClick(InventoryClickEvent event) {
-        if (event.getAction() == InventoryAction.NOTHING || event.isCancelled()) return;
+        if (event.getAction() == InventoryAction.NOTHING || event.getClickedInventory() == null) {
+            return;
+        }
 
-        Inventory clicked = event.getInventory();
-        AnimatedMenu menu = Plugin.getMenuManager().getMenu(clicked);
+        Player player = (Player) event.getWhoClicked();
+        Inventory clickedInventory = event.getClickedInventory();
+        Inventory topInventory = event.getView().getTopInventory();
+        AnimatedMenu menu = Plugin.getMenuManager().getMenu(topInventory);
 
-        if (menu != null) {
-            if (menu.isInteractDisabled()) {
-                event.setCancelled(true);
+        if (menu == null) {
+            return;
+        }
+
+        if (clickedInventory.equals(topInventory)) {
+            event.setCancelled(true);
+
+            int slot = event.getSlot();
+            Button button = menu.getSlot(slot);
+
+            if (slot == menu.getNavPrevSlot() || slot == menu.getNavNextSlot()) {
+                if (button != null && !button.isInteractDisabled()) {
+                    button.executeListener(event);
+                }
                 return;
             }
-
-            Button button = menu.getSlot(event.getSlot());
-            if (button != null) {
-                if (button.isInteractDisabled() &&
-                        event.getClickedInventory().equals(event.getView().getTopInventory())) {
-                    event.setCancelled(true);
-                }
-
+            if (button != null && !button.isInteractDisabled()) {
                 button.executeListener(event);
-
-                ItemStack clickedItem = event.getCurrentItem();
-                if (clickedItem != null && clickedItem.isSimilar(menu.getPrevPageItem())) {
-                    menu.setPage(menu.getCurrentPage() - 1);
-                } else if (clickedItem != null && clickedItem.isSimilar(menu.getNextPageItem())) {
-                    menu.setPage(menu.getCurrentPage() + 1);
-                }
+            }
+        } else {
+            if (menu.isInteractDisabled()) {
+                event.setCancelled(true);
             }
         }
     }

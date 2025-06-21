@@ -13,7 +13,7 @@ public class ColorImpl implements BukkitColor {
         if (text == null) return "";
 
         Matcher gradientMatcher = Pattern.compile("\\{#([A-Fa-f0-9]{6})>#([A-Fa-f0-9]{6})}([^{}]*)").matcher(text);
-        StringBuffer gradientConverted = new StringBuffer();
+        StringBuilder gradientConverted = new StringBuilder();
 
         while (gradientMatcher.find()) {
             String startHex = gradientMatcher.group(1);
@@ -26,7 +26,7 @@ public class ColorImpl implements BukkitColor {
         gradientMatcher.appendTail(gradientConverted);
 
         Matcher hexMatcher = Pattern.compile("#[a-fA-F0-9]{6}").matcher(gradientConverted.toString());
-        StringBuffer hexConverted = new StringBuffer();
+        StringBuilder hexConverted = new StringBuilder();
 
         while (hexMatcher.find()) {
             String hex = hexMatcher.group();

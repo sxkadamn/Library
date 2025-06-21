@@ -3,7 +3,8 @@ package net.lielibrary.gui.customize;
 public enum AnimationType {
     FILL_GLASS,
     WAVE,
-    RANDOM_FILL;
+    RANDOM_FILL,
+    SPIRAL;
 
     public static AnimationType fromString(String name) {
         try {

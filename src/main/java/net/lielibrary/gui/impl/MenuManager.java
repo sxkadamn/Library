@@ -14,6 +14,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.function.Consumer;
 
 public class MenuManager {
     private final HashMap<String, HashMap<String, AnimatedMenu>> guis;
@@ -31,23 +32,33 @@ public class MenuManager {
             throw new IllegalStateException("Configuration section 'menu.animation' not found in config.yml");
         }
 
-        AnimationType type = AnimationType.fromString(config.getString("type"));
-        Material material = Material.matchMaterial(config.getString("material"));
+        AnimationType type = AnimationType.fromString(config.getString("type", "FILL_GLASS"));
+        Material material = Material.matchMaterial(config.getString("material", "GRAY_STAINED_GLASS_PANE"));
         if (material == null) {
             material = Material.GRAY_STAINED_GLASS_PANE;
         }
         int speed = config.getInt("speed", 5);
         Sound sound;
         try {
-            sound = Sound.valueOf(config.getString("sound"));
+            sound = Sound.valueOf(config.getString("sound", "BLOCK_NOTE_BLOCK_BANJO"));
         } catch (IllegalArgumentException e) {
             sound = Sound.BLOCK_NOTE_BLOCK_BANJO;
         }
-        boolean autoUpdate = config.getBoolean("autoUpdate");
+        float soundVolume = (float) config.getDouble("sound_volume", 1.0);
+        float soundPitch = (float) config.getDouble("sound_pitch", 1.0);
+        boolean autoUpdate = config.getBoolean("autoUpdate", false);
 
-        AnimatedMenu animatedMenu = new MenuImpl(title, rows, type, material, speed, sound, autoUpdate, Plugin.getLibrary().getConfig());
+        AnimatedMenu animatedMenu = new MenuImpl(title, rows, type, material, speed, sound, soundVolume, soundPitch, autoUpdate, Plugin.getLibrary().getConfig());
 
         return registerGUI(title, player.getName(), animatedMenu);
+    }
+
+    public void applyAnimationEffectToAllMenus(Consumer<Player> effect) {
+        for (HashMap<String, AnimatedMenu> playerMenus : guis.values()) {
+            for (AnimatedMenu menu : playerMenus.values()) {
+                menu.addAnimationEffect(effect);
+            }
+        }
     }
 
     public AnimatedMenu registerGUI(String id, String player, AnimatedMenu menu) {
@@ -69,7 +80,10 @@ public class MenuManager {
     }
 
     public void removeMenus(String player) {
-        guis.remove(player);
+        HashMap<String, AnimatedMenu> playerMenus = guis.remove(player);
+        if (playerMenus != null) {
+            playerMenus.values().forEach(menu -> inv_guis.remove(menu.getInventory()));
+        }
     }
 
     public void closeAllMenusForPlayer(String player) {
@@ -95,6 +109,7 @@ public class MenuManager {
                 viewer.closeInventory();
             }
         }
+        inv_guis.clear();
     }
 
     public void reloadMenusForPlayer(String player) {
